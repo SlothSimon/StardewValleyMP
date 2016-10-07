@@ -344,6 +344,8 @@ namespace StardewValleyMP
         public static  String portStr = DEFAULT_PORT;
         public static  TcpListener listener = null;
 
+		public static bool stopListening = false;
+
         public static bool lobby = true;
         public static bool problemStarting = false;
         public static void startHost()
@@ -368,6 +370,8 @@ namespace StardewValleyMP
                     Socket socket = listener.AcceptSocket();
                     NetworkStream stream = new NetworkStream(socket);
                     server.addClient(socket, stream);
+					if (stopListening)
+						break;
                 }
 
             }

@@ -360,7 +360,8 @@ namespace StardewValleyMP.Vanilla
                     if (r.Contains(x, y))
                     {
                         StardewModdingAPI.Log.Async("Stopping listener, beginning loading");
-                        Multiplayer.listener.Server.Close();
+						//Multiplayer.listener.Server.Close();
+						Multiplayer.stopListening = true;
                         readyToLoad = true;
                     }
                 }
