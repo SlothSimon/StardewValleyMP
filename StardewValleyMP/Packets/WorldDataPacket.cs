@@ -35,7 +35,7 @@ namespace StardewValleyMP.Packets
 
         protected override void write(BinaryWriter writer)
         {
-            writer.Write(xml);
+             writer.Write(xml);
         }
 
         public override void process(Client client)

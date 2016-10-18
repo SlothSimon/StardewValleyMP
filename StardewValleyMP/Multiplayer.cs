@@ -61,6 +61,11 @@ namespace StardewValleyMP
         public static Dictionary<string, LocationCache> locations = new Dictionary< string, LocationCache >();
         public static string[] checkMail = new string[] { "ccCraftsRoom", "ccBoilerRoom", "ccVault", "ccFishTank", "ccBulletin", "ccPantry", "JojaMember"  };
 
+        // Network benchmarking
+#if NETWORKING_BENCHMARK
+        public static long serverToClientBytesTransferred;
+        public static long clientToServerBytesTransferred;
+#endif
         public static byte getMyId()
         {
             if ( mode == Mode.Client )
@@ -332,7 +337,7 @@ namespace StardewValleyMP
 
             foreach ( GameLocation loc in SaveGame.loaded.locations )
             {
-                if ( Game1.getLocationFromName( loc.name ) == null )
+                if ( loc.name.Contains( "_" ) && Game1.getLocationFromName( loc.name ) == null )
                 {
                     Log.Async(loc.name + " missing from game, copying from save");
                     Game1.locations.Add(loc);
@@ -345,7 +350,6 @@ namespace StardewValleyMP
         public static  TcpListener listener = null;
 
 		public static bool stopListening = false;
-
         public static bool lobby = true;
         public static bool problemStarting = false;
         public static void startHost()
@@ -357,8 +361,7 @@ namespace StardewValleyMP
             {
                 int port = Int32.Parse(portStr);
                 // http://stackoverflow.com/questions/1777629/how-to-listen-on-multiple-ip-addresses
-                listener = new TcpListener(IPAddress.IPv6Any, port);
-                listener.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+                listener = new TcpListener(port);
                 listener.Start();
 
                 client = null;
@@ -368,6 +371,7 @@ namespace StardewValleyMP
                 {
                     Log.Async("Waiting for connection...");
                     Socket socket = listener.AcceptSocket();
+                    socket.NoDelay = true;
                     NetworkStream stream = new NetworkStream(socket);
                     server.addClient(socket, stream);
 					if (stopListening)
@@ -405,7 +409,15 @@ namespace StardewValleyMP
             try
             {
                 Log.Async("Connecting to " + ipStr + ":" + portStr);
-                TcpClient socket = new TcpClient(ipStr, Int32.Parse(portStr));
+                IPAddress ip;
+                IPAddress.TryParse(ipStr, out ip );
+                int port = Int32.Parse(portStr);
+
+				TcpClient socket = new TcpClient(ipStr, port);
+                //TcpClient socket = new TcpClient(AddressFamily.InterNetworkV6);
+                //socket.Client.DualMode = true;
+                //socket.Connect(ip, port);
+                socket.NoDelay = true;
                 ChatMenu.chat.Add(new ChatEntry(null, "Connection established."));
 
                 client = new Client(socket);
@@ -428,7 +440,10 @@ namespace StardewValleyMP
 
         private static int prevDuhu, prevHul, prevLul;
         public static void update()
-        {
+        {// Really don't understand why it breaks without this
+            // But as soon as you get to the second day, it does. Ugh.
+            Game1.player.FarmerSprite.setOwner(Game1.player);
+
             if (Multiplayer.mode == Mode.Singleplayer) return;
 
             if ( MultiplayerUtility.latestID > prevLatestId )
@@ -447,10 +462,6 @@ namespace StardewValleyMP
                 Game1.currentLocation.resetForPlayerEntry();
             }
 
-            // Really don't understand why it breaks without this
-            // But as soon as you get to the second day, it does. Ugh.
-            Game1.player.FarmerSprite.setOwner(Game1.player);
-
             if (Game1.newDay)
             {
                 didNewDay = true;
@@ -467,19 +478,49 @@ namespace StardewValleyMP
                     {
                         client.stage = Client.NetStage.Waiting;
 
-                        SaveGame oldLoaded = SaveGame.loaded;
-                        var it = NewSaveGame.Save(true);
-                        while ( it.Current < 100 )
+                        try
                         {
-                            it.MoveNext();
-                            Thread.Sleep(5);
-                        }
+                            SaveGame oldLoaded = SaveGame.loaded;
+                            var it = NewSaveGame.Save(true);
+                            while (it.Current < 100)
+                            {
+                                it.MoveNext();
+                                Thread.Sleep(5);
+                            }
 
-                        MemoryStream tmp = new MemoryStream();
-                        SaveGame.serializer.Serialize(tmp, SaveGame.loaded);
-                        sendFunc(new NextDayPacket());
-                        sendFunc(new ClientFarmerDataPacket(Encoding.UTF8.GetString(tmp.ToArray())));
-                        //SaveGame.loaded = oldLoaded;
+                            foreach ( GameLocation loc in SaveGame.loaded.locations )
+                            {
+                                List<NPC> toRemove = new List<NPC>();
+                                foreach ( NPC npc in loc.characters )
+                                {
+                                    if ( npc is StardewValley.Monsters.RockGolem || npc is StardewValley.Monsters.Bat )
+                                    {
+                                        toRemove.Add(npc);
+                                    }
+                                }
+                                foreach ( NPC npc in toRemove )
+                                {
+                                    loc.characters.Remove(npc);
+                                }
+                            }
+
+                            MemoryStream tmp = new MemoryStream();
+                            SaveGame.serializer.Serialize(tmp, SaveGame.loaded);
+                            sendFunc(new NextDayPacket());
+                            sendFunc(new ClientFarmerDataPacket(Encoding.UTF8.GetString(tmp.ToArray())));
+                            //SaveGame.loaded = oldLoaded;
+                        }
+                        catch ( Exception e )
+                        {
+                            Log.Async("Exception transitioning to next day: " + e);
+                            ChatMenu.chat.Add(new ChatEntry(null, "Something went wrong transitioning days."));
+                            ChatMenu.chat.Add(new ChatEntry(null, "Report this bug, providing the full log file."));
+                            ChatMenu.chat.Add(new ChatEntry(null, "You might be stuck in bed now. Attempting to unstuck you, more stuff might go wrong though."));
+                            Game1.freezeControls = prevFreezeControls = false;
+                            Game1.newDay = false;
+                            Game1.fadeToBlackAlpha = 0;
+                            client.stage = Client.NetStage.Playing;
+                        }
                     }
                     sentNextDayPacket = true;
                 }
@@ -596,6 +637,8 @@ namespace StardewValleyMP
                 }
                 NPCMonitor.endChecks();
             }
+            
+            Game1.player.FarmerSprite.setOwner(Game1.player);
         }
 
         private static void doUpdatePlayer(Farmer farmer)
@@ -649,6 +692,15 @@ namespace StardewValleyMP
             */
         }
 
+        public static void drawNetworkingDebug(object sender, EventArgs args)
+        {
+#if NETWORKING_BENCHMARK
+            // Render networking benchmark info
+            Game1.spriteBatch.DrawString(Game1.smoothFont, "Server -> client bytes transferred: " + Multiplayer.serverToClientBytesTransferred, new Vector2(0, 30), Color.White);
+            Game1.spriteBatch.DrawString(Game1.smoothFont, "Client <- server bytes transferred: " + Multiplayer.serverToClientBytesTransferred, new Vector2(0, 50), Color.White);
+#endif
+        }
+
         public static bool goingToFestival = false;
         public static void locationChange( GameLocation oldLoc, GameLocation newLoc )
         {
@@ -660,8 +712,8 @@ namespace StardewValleyMP
             }
 
             Log.Async("(Me) " + SaveGame.loaded.player.name + " moved to " + newLocName + " (" + newLoc + ")");
-            LocationPacket loc = new LocationPacket(getMyId(), newLocName);
             MovingStatePacket move = new MovingStatePacket(getMyId(), Game1.player);
+            LocationPacket loc = new LocationPacket(getMyId(), newLocName);
             if (!goingToFestival) Multiplayer.sendFunc(loc);
             Multiplayer.sendFunc(move);
 

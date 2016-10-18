@@ -59,17 +59,17 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="xTile">
-      <HintPath>..\..\..\Library\Application Support\Steam\steamapps\common\Stardew Valley\Contents\MacOS\xTile.dll</HintPath>
+    <Reference Include="StardewModdingAPI">
+      <HintPath>..\..\..\Library\Application Support\Steam\steamapps\common\Stardew Valley\Contents\MacOS\StardewModdingAPI.exe</HintPath>
     </Reference>
     <Reference Include="StardewValley">
       <HintPath>..\..\..\Library\Application Support\Steam\steamapps\common\Stardew Valley\Contents\MacOS\StardewValley.exe</HintPath>
     </Reference>
-    <Reference Include="StardewModdingAPI">
-      <HintPath>..\..\..\Library\Application Support\Steam\steamapps\common\Stardew Valley\Contents\MacOS\StardewModdingAPI.exe</HintPath>
-    </Reference>
     <Reference Include="MonoGame.Framework">
       <HintPath>..\..\..\Library\Application Support\Steam\steamapps\common\Stardew Valley\Contents\MacOS\MonoGame.Framework.dll</HintPath>
+    </Reference>
+    <Reference Include="xTile">
+      <HintPath>..\..\..\Library\Application Support\Steam\steamapps\common\Stardew Valley\Contents\MacOS\xTile.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -77,6 +77,7 @@
     <Compile Include="ChatMenu.cs" />
     <Compile Include="Events.cs" />
     <Compile Include="LocationCache.cs" />
+    <Compile Include="MultiplayerConfig.cs" />
     <Compile Include="NPCMonitor.cs" />
     <Compile Include="Packets\FarmAnimalPacket.cs" />
     <Compile Include="Packets\BuildingUpdatePacket.cs" />

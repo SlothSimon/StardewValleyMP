@@ -162,7 +162,8 @@ namespace StardewValleyMP.Vanilla
             Game1.isRaining = SaveGame.loaded.isRaining;
             Game1.isLightning = SaveGame.loaded.isLightning;
             Game1.isSnowing = SaveGame.loaded.isSnowing;
-            SaveGame.loadDataToFarmer(SaveGame.loaded.player, null);
+            NewSaveGame.loadDataToFarmer(SaveGame.loaded.player, null);
+            Game1.player = SaveGame.loaded.player;
             Game1.loadingMessage = "Loading Maps...";
             yield return 36;
             ////////////////////////////////////////
@@ -353,11 +354,22 @@ namespace StardewValleyMP.Vanilla
                     Thread.Sleep(10);
                 }
             }
-            if (Game1.player.spouse != null)
+            if (Multiplayer.mode != Mode.Singleplayer)
             {
-                var npc = Game1.getCharacterFromName(Game1.player.spouse);
-                Multiplayer.sendFunc(new NPCUpdatePacket(npc));
-            };
+                if (Game1.player.spouse != null)
+                {
+                    string spouse = Game1.player.spouse;
+                    if (spouse.EndsWith("_engaged"))
+                        spouse = spouse.Substring(0, spouse.Length - "_engaged".Length);
+
+                    var npc = Game1.getCharacterFromName(spouse);
+                    if (npc != null)
+                    {
+                        NPCUpdatePacket packet = new NPCUpdatePacket(npc);
+                        Multiplayer.sendFunc(packet);
+                    }
+                }
+            }
             ////////////////////////////////////////
             yield return 100;
             yield break;
